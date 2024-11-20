@@ -1,0 +1,42 @@
+<additional>
+
+    <person id="person_0" depart="0.00">
+        <ride from="-15357702#0" to="423396537#1" lines="taxi"/>
+    </person>
+        
+    <person id="person_1" depart="0.00">
+        <ride from="15397508#2" to="15415046#1" lines="taxi"/>
+    </person>
+        
+    <person id="person_2" depart="0.00">
+        <ride from="734638892" to="170833889#2" lines="taxi"/>
+    </person>
+        
+    <person id="person_3" depart="0.00">
+        <ride from="242051885#5" to="-260958661#6" lines="taxi"/>
+    </person>
+        
+    <person id="person_4" depart="0.00">
+        <ride from="15375833#7" to="-15375845#2" lines="taxi"/>
+    </person>
+        
+    <person id="person_5" depart="0.00">
+        <ride from="15401820#2" to="260958661#2" lines="taxi"/>
+    </person>
+        
+    <person id="person_6" depart="0.00">
+        <ride from="15397515#5" to="557134008#2" lines="taxi"/>
+    </person>
+        
+    <person id="person_7" depart="0.00">
+        <ride from="-537144177#2" to="15414526#17" lines="taxi"/>
+    </person>
+        
+    <person id="person_8" depart="0.00">
+        <ride from="-15414526#16" to="15414507#6" lines="taxi"/>
+    </person>
+        
+    <person id="person_9" depart="0.00">
+        <ride from="15444753#17" to="15369247#0" lines="taxi"/>
+    </person>
+        </additional>

@@ -1,0 +1,14 @@
+<configuration>
+    <input>
+        <net-file value="downtown_houston.net.xml" />
+        <additional-files value="vehicle_type.add.xml,detectors.add.xml,persons.add.xml" />
+        <device.taxi.dispatch-algorithm value="traci"/>
+    </input>
+    <output>
+        <emission-output value="energy.xml" />
+    </output>
+    <time>
+        <begin value="0" />
+        <end value="1000.0" />
+    </time>
+</configuration>
