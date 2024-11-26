@@ -1,7 +1,7 @@
 <configuration>
     <input>
         <net-file value="downtown_houston.net.xml" />
-        <additional-files value="vehicle_type.add.xml,detectors.add.xml,persons.add.xml" />
+        <additional-files value="vehicle_type.add.xml,persons.add.xml" />
         <device.taxi.dispatch-algorithm value="traci"/>
     </input>
     <output>
