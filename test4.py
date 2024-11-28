@@ -103,5 +103,12 @@ def shutdown():
     simulation_runner = None
     return jsonify({'status': 'success', 'message': 'Simulation stopped.'})
 
+@app.route('/status', methods=['GET'])
+def status():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    status = simulation_runner.get_status()
+    return jsonify({'status': 'success', 'data': status})
+
 if __name__ == '__main__':
     app.run(debug=True)
