@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from simulation_runner import SimulationRunner
 import os
 import sys
@@ -9,6 +10,7 @@ if 'SUMO_HOME' not in os.environ:
 sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
 
 app = Flask(__name__)
+CORS(app)
 
 simulation_runner = None  # Initialize simulation runner as None
 
@@ -23,7 +25,7 @@ def start_simulation():
     sim_length = float(data.get('sim_length', 1000))
     num_people = int(data.get('num_people', 3))
     num_taxis = int(data.get('num_taxis', 3))
-    num_chargers = int(data.get('num_chargers', 0))  # Get num_chargers from POST data
+    num_chargers = int(data.get('num_chargers', 0))
 
     # Start the simulation runner with initial parameters
     simulation_runner = SimulationRunner(
@@ -31,7 +33,7 @@ def start_simulation():
         sim_length=sim_length,
         num_people=num_people,
         num_taxis=num_taxis,
-        num_chargers=num_chargers  # Pass num_chargers to SimulationRunner
+        num_chargers=num_chargers
     )
     simulation_runner.start()
 
