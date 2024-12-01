@@ -1,8 +1,9 @@
-<additional>
+<!-- <additional>
     <vType id="taxi" accel="1.0" decel="1.0" length="12" maxSpeed="100.0" sigma="0.0" minGap="2.5" mass="1500" color="0,1,1"
-           vClass="taxi" propulsionType="electric" guiShape="taxi" personCapacity="4" allowPassengers="true" emissionClass="ZeroEmission">
+           vClass="taxi" propulsionType="electric" guiShape="taxi" personCapacity="4" allowPassengers="true">
         <param key="has.taxi.device" value="true"/>
         <param key="has.battery.device" value="true"/>
+        <param key="device.battery.capacity" value="40"/>
         <param key="maximumPower" value="1000"/>
         <param key="frontSurfaceArea" value="2.5"/>
         <param key="airDragCoefficient" value="0.32"/>
@@ -13,11 +14,73 @@
         <param key="propulsionEfficiency" value="0.9"/>
         <param key="recuperationEfficiency" value="0.9"/>
         <param key="stoppingThreshold" value="0.1"/>
-        <param key="device.battery.maximumBatteryCapacity" value="500"/>
-        <param key="device.battery.actualBatteryCapacity" value="500"/>
-        <param key="device.battery.powerConsumption" value="0.2"/>
         <param key="device.battery.maximumChargeRate" value="150000"/>
-        <param key="electric.vehicleModel" value="energyConsumption"/>
-        <param key="electric.device.energyConsumption" value="consumptionModel"/>
+    </vType>
+</additional> -->
+
+<!-- <additional>
+    <vType id="taxi" accel="1.0" decel="1.0" length="12" maxSpeed="100.0" sigma="0.0" minGap="2.5" mass="1500" color="0,1,1"
+           vClass="taxi" propulsionType="electric" guiShape="taxi" personCapacity="4" allowPassengers="true">
+        <param key="has.taxi.device" value="true"/>
+        <param key="device.taxi.dispatch-algorithm" value="greedy"/>
+        <param key="device.taxi.idle-algorithm" value="randomCircling"/>
+        <param key="has.battery.device" value="true"/>
+        <param key="device.battery.maximumBatteryCapacity" value="40"/>
+        <param key="device.battery.actualBatteryCapacity" value="40"/>
+        <param key="maximumPower" value="1000"/>
+        <param key="frontSurfaceArea" value="2.5"/>
+        <param key="airDragCoefficient" value="0.32"/>
+        <param key="rotatingMass" value="10"/>
+        <param key="radialDragCoefficient" value="0.015"/>
+        <param key="rollDragCoefficient" value="0.008"/>
+        <param key="constantPowerIntake" value="100"/>
+        <param key="propulsionEfficiency" value="0.9"/>
+        <param key="recuperationEfficiency" value="0.9"/>
+        <param key="stoppingThreshold" value="0.1"/>
+        <param key="device.battery.maximumChargeRate" value="150000"/>
+    </vType>
+</additional> -->
+
+<additional>
+    <vType id="taxi" accel="1.0" decel="1.0" length="12" maxSpeed="100.0" sigma="0.0" minGap="2.5" mass="1500" color="0,1,1"
+           vClass="taxi" propulsionType="electric" guiShape="taxi" personCapacity="4" allowPassengers="true" stopAtEnd="false">
+        <param key="has.taxi.device" value="true"/>
+        <param key="device.taxi.dispatch-algorithm" value="greedy"/>
+        <param key="device.taxi.idle-algorithm" value="randomCircling"/>
+        <param key="has.battery.device" value="true"/>
+        <param key="device.battery.maximumBatteryCapacity" value="40"/>
+        <param key="device.battery.actualBatteryCapacity" value="40"/>
+        <param key="maximumPower" value="1000"/>
+        <param key="frontSurfaceArea" value="2.5"/>
+        <param key="airDragCoefficient" value="0.32"/>
+        <param key="rotatingMass" value="10"/>
+        <param key="radialDragCoefficient" value="0.015"/>
+        <param key="rollDragCoefficient" value="0.008"/>
+        <param key="constantPowerIntake" value="100"/>
+        <param key="propulsionEfficiency" value="0.9"/>
+        <param key="recuperationEfficiency" value="0.9"/>
+        <param key="stoppingThreshold" value="0.1"/>
+        <param key="device.battery.maximumChargeRate" value="150000"/>
     </vType>
 </additional>
+
+
+
+
+<!-- <additional>
+    <vType id="car" accel="1.0" decel="1.0" length="12" maxSpeed="100.0" sigma="0.0" minGap="2.5" mass="10000" color="1,1,1">
+        <param key="has.battery.device" value="true"/>
+        <param key="device.battery.capacity" value="40"/>
+        <param key="maximumPower" value="1000"/>
+        <param key="frontSurfaceArea" value="5"/>
+        <param key="airDragCoefficient" value="0.6"/>
+        <param key="rotatingMass" value="100"/>
+        <param key="radialDragCoefficient" value="0.5"/>
+        <param key="rollDragCoefficient" value="0.01"/>
+        <param key="constantPowerIntake" value="100"/>
+        <param key="propulsionEfficiency" value="0.9"/>
+        <param key="recuperationEfficiency" value="0.9"/>
+        <param key="stoppingThreshold" value="0.1"/>
+        <param key="device.battery.maximumChargeRate" value="150000"/>
+    </vType>
+</additional> -->
