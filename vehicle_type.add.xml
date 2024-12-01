@@ -1,6 +1,6 @@
 <additional>
     <vType id="taxi" accel="1.0" decel="1.0" length="12" maxSpeed="100.0" sigma="0.0" minGap="2.5" mass="1500" color="0,1,1"
-           vClass="taxi" propulsionType="electric" guiShape="taxi" personCapacity="4" allowPassengers="true">
+           vClass="taxi" propulsionType="electric" guiShape="taxi" personCapacity="4" allowPassengers="true" emissionClass="ZeroEmission">
         <param key="has.taxi.device" value="true"/>
         <param key="has.battery.device" value="true"/>
         <param key="maximumPower" value="1000"/>
