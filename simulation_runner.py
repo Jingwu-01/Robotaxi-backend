@@ -3,6 +3,7 @@ import traci
 import sumolib
 import random
 from queue import Queue
+import time
 
 class SimulationRunner(threading.Thread):
     def __init__(self, step_length, sim_length, num_people=3, num_taxis=3, num_chargers=0):
@@ -22,15 +23,11 @@ class SimulationRunner(threading.Thread):
         self.stop_event = threading.Event()
         self.is_running = False
         self.command_queue = Queue()
-        self.lock = threading.Lock()
 
         # Counters for unique IDs
         self.taxi_counter = 0
         self.person_counter = 0
         self.charger_counter = 0
-
-        self.cumulative_consumption = {}
-        self.cumulative_consumption_lock = threading.Lock()
 
     def run(self):
         self.is_running = True
@@ -42,28 +39,35 @@ class SimulationRunner(threading.Thread):
 
         try:
             while not self.stop_event.is_set() and traci.simulation.getTime() < self.sim_length:
+                # Process commands before simulation step
+                while not self.command_queue.empty():
+                    command = self.command_queue.get()
+                    try:
+                        if command['action'] == 'add_person':
+                            self._add_people(command['num_people'])
+                        elif command['action'] == 'add_taxi':
+                            self._spawn_taxis_at_runtime(command['num_taxis'])
+                        elif command['action'] == 'add_charger':
+                            self._add_chargers_at_runtime(command['num_chargers'])
+                        elif command['action'] == 'remove_person':
+                            self._remove_people(command['num_people'])
+                        elif command['action'] == 'remove_taxi':
+                            self._remove_taxis(command['num_taxis'])
+                        elif command['action'] == 'remove_charger':
+                            self._remove_chargers(command['num_chargers'])
+                    except Exception as e:
+                        print(f"Error processing command {command}: {e}")
+
+                # Advance the simulation step
                 traci.simulationStep()
                 timestep += 1
 
-                # Process commands from the queue
-                while not self.command_queue.empty():
-                    command = self.command_queue.get()
-                    if command['action'] == 'add_person':
-                        self._add_people(command['num_people'])
-                    elif command['action'] == 'add_taxi':
-                        self._spawn_taxis_at_runtime(command['num_taxis'])
-                    elif command['action'] == 'add_charger':
-                        self._add_chargers_at_runtime(command['num_chargers'])
-                    elif command['action'] == 'remove_person':
-                        self._remove_people(command['num_people'])
-                    elif command['action'] == 'remove_taxi':
-                        self._remove_taxis(command['num_taxis'])
-                    elif command['action'] == 'remove_charger':
-                        self._remove_chargers(command['num_chargers'])
-                
-                # Simulate charging behavior
+                # Simulate charging and energy consumption
                 self.simulate_charging()
                 self.simulate_energy_consumption()
+
+                # Small sleep to prevent tight loop
+                time.sleep(0.01)
 
         except traci.exceptions.TraCIException as e:
             print(f"TraCI encountered an error: {e}")
@@ -88,7 +92,7 @@ class SimulationRunner(threading.Thread):
     <person id="{person_id}" depart="0.00">
         <ride from="{pickup_edge}" to="{dropoff_edge}" lines="taxi"/>
     </person>
-        '''
+            '''
             persons.append(person_xml)
             print(f"Person {person_id} added with ride from {pickup_edge} to {dropoff_edge}")
 
@@ -108,142 +112,189 @@ class SimulationRunner(threading.Thread):
             "--start",
             "--quit-on-end",
             "--step-length", str(self.step_length),
-            "--additional-files", "vehicle_type.add.xml,persons.add.xml"
+            "--additional-files", "vehicle_type.add.xml,persons.add.xml",
+            "--collision.action", "none",
+            "--log", "sumo_log.txt",
+            "--error-log", "sumo_error_log.txt",
+            "--message-log", "sumo_message_log.txt",
+            "--verbose", "true",
         ]
         traci.start(sumo_cmd)
 
-    def get_status(self):
-        """Returns the current number of taxis, people, and chargers."""
-        with self.lock:
-            return {
-                'num_taxis': len(self.taxi_ids),
-                'num_people': len(self.person_ids),
-                'num_chargers': len(self.active_chargers)
-            }
-        
     def spawn_taxis(self, num_taxis=3):
-        """Spawns initial taxis at valid edges."""
-        with self.lock:
-            valid_edges = [edge.getID() for edge in self.net.getEdges() if edge.getLaneNumber() > 0]
-            for _ in range(num_taxis):
-                taxi_id = f"taxi_{self.taxi_counter}"
-                self.taxi_counter += 1
+        """Spawns initial taxis with valid routes."""
+        valid_edges = [edge.getID() for edge in self.net.getEdges() if edge.getLaneNumber() > 0]
+        for _ in range(num_taxis):
+            taxi_id = f"taxi_{self.taxi_counter}"
+            self.taxi_counter += 1
+            start_edge = random.choice(valid_edges)
+            # Find a connected edge to create a valid route
+            start_edge_obj = self.net.getEdge(start_edge)
+            connected_edges = [e.getID() for e in start_edge_obj.getOutgoing().keys()]
+            if not connected_edges:
+                # If no outgoing edges, choose another edge
+                connected_edges = valid_edges.copy()
+                connected_edges.remove(start_edge)
+            end_edge = random.choice(connected_edges)
+            route_id = f"route_{taxi_id}"
+            try:
+                traci.route.add(route_id, [start_edge, end_edge])
+                traci.vehicle.add(
+                    taxi_id,
+                    routeID=route_id,
+                    typeID="taxi",
+                    departPos="random",
+                    departLane="best",
+                    departSpeed="max"
+                )
                 self.taxi_ids.append(taxi_id)
-                start_edge = random.choice(valid_edges)
-                route_id = f"route_{taxi_id}"
-                traci.route.add(route_id, [start_edge])
-                traci.vehicle.add(taxi_id, routeID=route_id, typeID="taxi")
-                print(f"Spawned taxi {taxi_id} at edge {start_edge}")
+                print(f"Spawned taxi {taxi_id} with route from {start_edge} to {end_edge}")
+            except traci.exceptions.TraCIException as e:
+                print(f"Error adding taxi {taxi_id}: {e}")
 
     def add_chargers(self, num_chargers=0):
-        with self.lock:
-            """Adds chargers at the start of the simulation."""
-            valid_lanes = [lane for edge in self.net.getEdges() for lane in edge.getLanes()]
-            for _ in range(num_chargers):
-                charger_id = f"charger_{self.charger_counter}"
-                self.charger_counter += 1
-                self.charger_ids.append(charger_id)
-                lane = random.choice(valid_lanes)
-                lane_id = lane.getID()
-                position = random.uniform(0, lane.getLength())
-                charger_info = (charger_id, lane_id, position)
-                self.active_chargers.append(charger_info)
-                print(f"Activated charger {charger_id} at lane {lane_id}, position {position}")
+        """Adds chargers at the start of the simulation."""
+        valid_lanes = [lane for edge in self.net.getEdges() for lane in edge.getLanes()]
+        for _ in range(num_chargers):
+            charger_id = f"charger_{self.charger_counter}"
+            self.charger_counter += 1
+            self.charger_ids.append(charger_id)
+            lane = random.choice(valid_lanes)
+            lane_id = lane.getID()
+            position = random.uniform(0, lane.getLength())
+            charger_info = (charger_id, lane_id, position)
+            self.active_chargers.append(charger_info)
+            print(f"Activated charger {charger_id} at lane {lane_id}, position {position}")
 
+    # def _spawn_taxis_at_runtime(self, num_taxis):
+    #     """Adds taxis during simulation runtime with valid routes."""
+    #     valid_edges = [edge.getID() for edge in self.net.getEdges() if edge.getLaneNumber() > 0]
+    #     for _ in range(num_taxis):
+    #         taxi_id = f"taxi_{self.taxi_counter}"
+    #         self.taxi_counter += 1
+    #         start_edge = random.choice(valid_edges)
+    #         # Find a connected edge to create a valid route
+    #         start_edge_obj = self.net.getEdge(start_edge)
+    #         connected_edges = [e.getID() for e in start_edge_obj.getOutgoing().keys()]
+    #         if not connected_edges:
+    #             # If no outgoing edges, choose another edge
+    #             connected_edges = valid_edges.copy()
+    #             connected_edges.remove(start_edge)
+    #         end_edge = random.choice(connected_edges)
+    #         route_id = f"route_{taxi_id}"
+    #         try:
+    #             traci.route.add(route_id, [start_edge, end_edge])
+    #             traci.vehicle.add(
+    #                 taxi_id,
+    #                 routeID=route_id,
+    #                 typeID="taxi",
+    #                 departPos="random",
+    #                 departLane="best",
+    #                 departSpeed="max"
+    #             )
+    #             self.taxi_ids.append(taxi_id)
+    #             print(f"Spawned taxi {taxi_id} with route from {start_edge} to {end_edge}")
+    #         except traci.exceptions.TraCIException as e:
+    #             print(f"Error adding taxi {taxi_id}: {e}")
+            
     def _spawn_taxis_at_runtime(self, num_taxis):
-        """Adds taxis during simulation runtime."""
-        with self.lock:
-            valid_edges = [edge.getID() for edge in self.net.getEdges() if edge.getLaneNumber() > 0]
-            for _ in range(num_taxis):
-                taxi_id = f"taxi_{self.taxi_counter}"
-                self.taxi_counter += 1
+        """Adds taxis during simulation runtime with valid routes."""
+        valid_edges = [edge.getID() for edge in self.net.getEdges() if edge.getLaneNumber() > 0]
+        for _ in range(num_taxis):
+            taxi_id = f"taxi_{self.taxi_counter}"
+            self.taxi_counter += 1
+            start_edge = random.choice(valid_edges)
+            dest_edge = random.choice(valid_edges)
+            while dest_edge == start_edge:
+                dest_edge = random.choice(valid_edges)
+            # Compute a valid route
+            route = traci.simulation.findRoute(start_edge, dest_edge)
+            if not route.edges:
+                print(f"No valid route found for taxi {taxi_id} from {start_edge} to {dest_edge}. Skipping taxi.")
+                continue
+            route_edges = route.edges
+            route_id = f"route_{taxi_id}"
+            try:
+                traci.route.add(route_id, route_edges)
+                traci.vehicle.add(
+                    taxi_id,
+                    routeID=route_id,
+                    typeID="taxi",
+                    departPos="random",
+                    departLane="best",
+                    departSpeed="max"
+                )
                 self.taxi_ids.append(taxi_id)
-                start_edge = random.choice(valid_edges)
-                route_id = f"route_{taxi_id}"
-                traci.route.add(route_id, [start_edge])
-                traci.vehicle.add(taxi_id, routeID=route_id, typeID="taxi")
-                print(f"Spawned taxi {taxi_id} at edge {start_edge}")
+                print(f"Spawned taxi {taxi_id} with route from {start_edge} to {dest_edge}")
+            except traci.exceptions.TraCIException as e:
+                print(f"Error adding taxi {taxi_id}: {e}")
+
 
     def _add_people(self, num_people):
         """Adds people dynamically during simulation runtime."""
-        with self.lock:
-            valid_edges = [edge.getID() for edge in self.net.getEdges() if edge.getLaneNumber() > 0]
-            for _ in range(num_people):
-                person_id = f"person_{self.person_counter}"
-                self.person_counter += 1
-                self.person_ids.append(person_id)
-                pickup_edge = random.choice(valid_edges)
+        valid_edges = [edge.getID() for edge in self.net.getEdges() if edge.getLaneNumber() > 0]
+        for _ in range(num_people):
+            person_id = f"person_{self.person_counter}"
+            self.person_counter += 1
+            self.person_ids.append(person_id)
+            pickup_edge = random.choice(valid_edges)
+            dropoff_edge = random.choice(valid_edges)
+            while pickup_edge == dropoff_edge:
                 dropoff_edge = random.choice(valid_edges)
-                while pickup_edge == dropoff_edge:
-                    dropoff_edge = random.choice(valid_edges)
-                depart_time = traci.simulation.getTime() + self.step_length  # Ensure depart time is in the future
-                traci.person.add(person_id, edgeID=pickup_edge, pos=0, depart=depart_time)
-                traci.person.appendDrivingStage(person_id, toEdge=dropoff_edge, lines="taxi")
-                print(f"Added person {person_id} dynamically with ride from {pickup_edge} to {dropoff_edge}")
+            depart_time = traci.simulation.getTime() + self.step_length  # Ensure depart time is in the future
+            traci.person.add(person_id, edgeID=pickup_edge, pos=0, depart=depart_time)
+            traci.person.appendDrivingStage(person_id, toEdge=dropoff_edge, lines="taxi")
+            print(f"Added person {person_id} dynamically with ride from {pickup_edge} to {dropoff_edge}")
 
     def _add_chargers_at_runtime(self, num_chargers):
         """Adds chargers dynamically during simulation runtime."""
-        with self.lock:
-            valid_lanes = [lane for edge in self.net.getEdges() for lane in edge.getLanes()]
-            for _ in range(num_chargers):
-                charger_id = f"charger_{self.charger_counter}"
-                self.charger_counter += 1
-                self.charger_ids.append(charger_id)
-                lane = random.choice(valid_lanes)
-                lane_id = lane.getID()
-                position = random.uniform(0, lane.getLength())
-                charger_info = (charger_id, lane_id, position)
-                self.active_chargers.append(charger_info)
-                print(f"Activated charger {charger_id} at lane {lane_id}, position {position}")
+        self.add_chargers(num_chargers=num_chargers)
 
     def _remove_people(self, num_people):
         """Removes people from the simulation."""
-        with self.lock:
-            for _ in range(num_people):
-                if self.person_ids:
-                    person_id = self.person_ids.pop()
-                    try:
-                        traci.person.remove(person_id)
-                        print(f"Removed person {person_id} from the simulation.")
-                    except traci.exceptions.TraCIException as e:
-                        print(f"Error removing person {person_id}: {e}")
-                else:
-                    print("No more people to remove.")
-                    break
+        for _ in range(num_people):
+            if self.person_ids:
+                person_id = self.person_ids.pop()
+                try:
+                    traci.person.remove(person_id)
+                    print(f"Removed person {person_id} from the simulation.")
+                except traci.exceptions.TraCIException as e:
+                    print(f"Error removing person {person_id}: {e}")
+            else:
+                print("No more people to remove.")
+                break
 
     def _remove_taxis(self, num_taxis):
         """Removes taxis from the simulation."""
-        with self.lock:
-            for _ in range(num_taxis):
-                if self.taxi_ids:
-                    taxi_id = self.taxi_ids.pop()
-                    try:
-                        traci.vehicle.remove(taxi_id)
-                        print(f"Removed taxi {taxi_id} from the simulation.")
-                        with self.cumulative_consumption_lock:
-                            if taxi_id in self.cumulative_consumption:
-                                del self.cumulative_consumption[taxi_id]
-                    except traci.exceptions.TraCIException as e:
-                        print(f"Error removing taxi {taxi_id}: {e}")
-                else:
-                    print("No more taxis to remove.")
-                    break
+        for _ in range(num_taxis):
+            if self.taxi_ids:
+                taxi_id = self.taxi_ids.pop()
+                try:
+                    traci.vehicle.remove(taxi_id)
+                    print(f"Removed taxi {taxi_id} from the simulation.")
+                except traci.exceptions.TraCIException as e:
+                    print(f"Error removing taxi {taxi_id}: {e}")
+            else:
+                print("No more taxis to remove.")
+                break
 
     def _remove_chargers(self, num_chargers):
         """Removes chargers from the simulation."""
-        with self.lock:
-            for _ in range(num_chargers):
-                if self.active_chargers:
-                    charger_info = self.active_chargers.pop()
-                    charger_id = charger_info[0]
-                    print(f"Removed charger {charger_id} from the simulation.")
-                else:
-                    print("No more chargers to remove.")
-                    break
+        for _ in range(num_chargers):
+            if self.active_chargers:
+                charger_info = self.active_chargers.pop()
+                charger_id = charger_info[0]
+                print(f"Removed charger {charger_id} from the simulation.")
+            else:
+                print("No more chargers to remove.")
+                break
 
     def simulate_charging(self):
         """Simulates charging for taxis at charger locations."""
-        for taxi_id in self.taxi_ids:
+        for taxi_id in list(self.taxi_ids):
+            if taxi_id not in traci.vehicle.getIDList():
+                self.taxi_ids.remove(taxi_id)
+                continue
             try:
                 taxi_lane = traci.vehicle.getLaneID(taxi_id)
                 taxi_position = traci.vehicle.getLanePosition(taxi_id)
@@ -254,41 +305,24 @@ class SimulationRunner(threading.Thread):
                         maximum_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.maximumBatteryCapacity"))
                         new_capacity = min(current_capacity + 50, maximum_capacity)
                         traci.vehicle.setParameter(taxi_id, "device.battery.actualBatteryCapacity", str(new_capacity))
-                        print(f"Taxi {taxi_id} is charging at {charger_id}. New capacity: {new_capacity}")
-            except traci.exceptions.TraCIException as e:
-                print(f"Error while simulating charging for taxi {taxi_id}: {e}")
+            except traci.exceptions.TraCIException:
+                pass  # Silently ignore or handle error
 
     def simulate_energy_consumption(self):
-        """Simulates energy consumption for taxis and tracks cumulative consumption."""
-        with self.lock:
-            for taxi_id in self.taxi_ids:
-                try:
-                    # Get instantaneous power consumption in Watts (positive values)
-                    instantaneous_power = traci.vehicle.getElectricityConsumption(taxi_id)
-                    # Energy consumed during the timestep (in Joules)
-                    energy_consumed = instantaneous_power * self.step_length  # step_length in seconds
-                    # Update cumulative consumption in Wh (since battery capacity is in Wh)
-                    energy_consumed_Wh = energy_consumed / 3600  # Convert Joules to Watt-hours
-                    with self.cumulative_consumption_lock:
-                        self.cumulative_consumption[taxi_id] = self.cumulative_consumption.get(taxi_id, 0.0) + energy_consumed_Wh
-                    # Update battery capacity
-                    current_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.actualBatteryCapacity"))
-                    new_capacity = max(current_capacity - energy_consumed_Wh, 0)
-                    traci.vehicle.setParameter(taxi_id, "device.battery.actualBatteryCapacity", str(new_capacity))
-                except traci.exceptions.TraCIException as e:
-                    print(f"Error while simulating energy consumption for taxi {taxi_id}: {e}")
-
-    def get_cumulative_consumption(self):
-        """Returns the cumulative energy consumption for all vehicles."""
-        with self.cumulative_consumption_lock:
-            consumption = {}
-            for taxi_id in self.taxi_ids:
-                try:
-                    cumulative_energy = float(traci.vehicle.getElectricityConsumption(taxi_id))
-                    consumption[taxi_id] = round(cumulative_energy, 2)
-                except traci.exceptions.TraCIException as e:
-                    print(f"Error getting cumulative consumption for taxi {taxi_id}: {e}")
-            return consumption
+        """Simulates energy consumption for taxis."""
+        for taxi_id in list(self.taxi_ids):
+            if taxi_id not in traci.vehicle.getIDList():
+                self.taxi_ids.remove(taxi_id)
+                continue
+            try:
+                current_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.actualBatteryCapacity"))
+                consumption_rate = 0.1  # Adjust as needed
+                new_capacity = max(current_capacity - consumption_rate, 0)
+                traci.vehicle.setParameter(taxi_id, "device.battery.actualBatteryCapacity", str(new_capacity))
+                if new_capacity == 0:
+                    traci.vehicle.setStop(taxi_id, traci.vehicle.getRoadID(taxi_id), duration=100000)
+            except traci.exceptions.TraCIException:
+                pass  # Silently ignore or handle error
 
     def stop(self):
         """Stops the simulation."""
