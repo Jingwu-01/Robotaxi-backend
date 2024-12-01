@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
 app = Flask(__name__)
 CORS(app)
 
-simulation_runner = None  # Initialize simulation runner as None
+simulation_runner = None
 
 @app.route('/start_simulation', methods=['POST'])
 def start_simulation():
@@ -93,6 +93,23 @@ def remove_charger():
     simulation_runner.command_queue.put({'action': 'remove_charger', 'num_chargers': num_chargers})
     return jsonify({'status': 'success', 'message': f'Removing {num_chargers} chargers from the simulation.'})
 
+@app.route('/vehicles', methods=['GET'])
+def get_vehicles():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({"error": "Simulation not running"}), 400
+    try:
+        cumulative_consumption = simulation_runner.get_cumulative_consumption()
+        return jsonify({"vehicles": cumulative_consumption}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/status', methods=['GET'])
+def status():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    status = simulation_runner.get_status()
+    return jsonify({'status': 'success', 'data': status})
+
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
     global simulation_runner
@@ -102,13 +119,6 @@ def shutdown():
     simulation_runner.join()
     simulation_runner = None
     return jsonify({'status': 'success', 'message': 'Simulation stopped.'})
-
-@app.route('/status', methods=['GET'])
-def status():
-    if not simulation_runner or not simulation_runner.is_running:
-        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
-    status = simulation_runner.get_status()
-    return jsonify({'status': 'success', 'data': status})
 
 if __name__ == '__main__':
     app.run(debug=True)
