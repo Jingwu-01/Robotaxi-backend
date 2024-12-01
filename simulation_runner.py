@@ -29,6 +29,9 @@ class SimulationRunner(threading.Thread):
         self.person_counter = 0
         self.charger_counter = 0
 
+        self.cumulative_consumption = {}
+        self.cumulative_consumption_lock = threading.Lock()
+
     def run(self):
         self.is_running = True
         self.generate_persons_xml(num_people=self.num_people)
@@ -57,7 +60,7 @@ class SimulationRunner(threading.Thread):
                         self._remove_taxis(command['num_taxis'])
                     elif command['action'] == 'remove_charger':
                         self._remove_chargers(command['num_chargers'])
-
+                
                 # Simulate charging behavior
                 self.simulate_charging()
                 self.simulate_energy_consumption()
@@ -130,7 +133,6 @@ class SimulationRunner(threading.Thread):
                 route_id = f"route_{taxi_id}"
                 traci.route.add(route_id, [start_edge])
                 traci.vehicle.add(taxi_id, routeID=route_id, typeID="taxi")
-                traci.vehicle.setParameter(taxi_id, "device.battery.actualBatteryCapacity", "500")
                 print(f"Spawned taxi {taxi_id} at edge {start_edge}")
 
     def add_chargers(self, num_chargers=0):
@@ -160,7 +162,6 @@ class SimulationRunner(threading.Thread):
                 route_id = f"route_{taxi_id}"
                 traci.route.add(route_id, [start_edge])
                 traci.vehicle.add(taxi_id, routeID=route_id, typeID="taxi")
-                traci.vehicle.setParameter(taxi_id, "device.battery.actualBatteryCapacity", "500")
                 print(f"Spawned taxi {taxi_id} at edge {start_edge}")
 
     def _add_people(self, num_people):
@@ -219,6 +220,9 @@ class SimulationRunner(threading.Thread):
                     try:
                         traci.vehicle.remove(taxi_id)
                         print(f"Removed taxi {taxi_id} from the simulation.")
+                        with self.cumulative_consumption_lock:
+                            if taxi_id in self.cumulative_consumption:
+                                del self.cumulative_consumption[taxi_id]
                     except traci.exceptions.TraCIException as e:
                         print(f"Error removing taxi {taxi_id}: {e}")
                 else:
@@ -255,15 +259,36 @@ class SimulationRunner(threading.Thread):
                 print(f"Error while simulating charging for taxi {taxi_id}: {e}")
 
     def simulate_energy_consumption(self):
-        """Simulates energy consumption for taxis."""
-        for taxi_id in self.taxi_ids:
-            try:
-                current_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.actualBatteryCapacity"))
-                consumption_rate = 1  # Units of battery capacity consumed per timestep
-                new_capacity = max(current_capacity - consumption_rate, 0)
-                traci.vehicle.setParameter(taxi_id, "device.battery.actualBatteryCapacity", str(new_capacity))
-            except traci.exceptions.TraCIException as e:
-                print(f"Error while simulating energy consumption for taxi {taxi_id}: {e}")
+        """Simulates energy consumption for taxis and tracks cumulative consumption."""
+        with self.lock:
+            for taxi_id in self.taxi_ids:
+                try:
+                    # Get instantaneous power consumption in Watts (positive values)
+                    instantaneous_power = traci.vehicle.getElectricityConsumption(taxi_id)
+                    # Energy consumed during the timestep (in Joules)
+                    energy_consumed = instantaneous_power * self.step_length  # step_length in seconds
+                    # Update cumulative consumption in Wh (since battery capacity is in Wh)
+                    energy_consumed_Wh = energy_consumed / 3600  # Convert Joules to Watt-hours
+                    with self.cumulative_consumption_lock:
+                        self.cumulative_consumption[taxi_id] = self.cumulative_consumption.get(taxi_id, 0.0) + energy_consumed_Wh
+                    # Update battery capacity
+                    current_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.actualBatteryCapacity"))
+                    new_capacity = max(current_capacity - energy_consumed_Wh, 0)
+                    traci.vehicle.setParameter(taxi_id, "device.battery.actualBatteryCapacity", str(new_capacity))
+                except traci.exceptions.TraCIException as e:
+                    print(f"Error while simulating energy consumption for taxi {taxi_id}: {e}")
+
+    def get_cumulative_consumption(self):
+        """Returns the cumulative energy consumption for all vehicles."""
+        with self.cumulative_consumption_lock:
+            consumption = {}
+            for taxi_id in self.taxi_ids:
+                try:
+                    cumulative_energy = float(traci.vehicle.getElectricityConsumption(taxi_id))
+                    consumption[taxi_id] = round(cumulative_energy, 2)
+                except traci.exceptions.TraCIException as e:
+                    print(f"Error getting cumulative consumption for taxi {taxi_id}: {e}")
+            return consumption
 
     def stop(self):
         """Stops the simulation."""
