@@ -91,6 +91,13 @@ def remove_charger():
     simulation_runner.command_queue.put({'action': 'remove_charger', 'num_chargers': num_chargers})
     return jsonify({'status': 'success', 'message': f'Removing {num_chargers} chargers from the simulation.'})
 
+@app.route('/status', methods=['GET'])
+def status():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    status = simulation_runner.get_status()
+    return jsonify({'status': 'success', 'data': status})
+
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
     global simulation_runner
