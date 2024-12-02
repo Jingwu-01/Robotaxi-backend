@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from simulation_runner import SimulationRunner
 import os
@@ -109,6 +109,13 @@ def shutdown():
     simulation_runner.join()
     simulation_runner = None
     return jsonify({'status': 'success', 'message': 'Simulation stopped.'})
+
+@app.route('/network', methods=['GET'])
+def get_network():
+    try:
+        return send_file('network.geojson', mimetype='application/json')
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
