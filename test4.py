@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from simulation_runner import SimulationRunner
 import os
 import sys
@@ -9,8 +10,9 @@ if 'SUMO_HOME' not in os.environ:
 sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
 
 app = Flask(__name__)
+CORS(app)
 
-simulation_runner = None  # Initialize simulation runner as None
+simulation_runner = None
 
 @app.route('/start_simulation', methods=['POST'])
 def start_simulation():
