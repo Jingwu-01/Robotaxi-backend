@@ -124,6 +124,12 @@ def get_electricity_consumption():
     consumption_data = simulation_runner.get_electricity_consumption()
     return jsonify({'status': 'success', 'data': consumption_data})
 
+@app.route('/activeChargers', methods=['GET'])
+def get_active_chargers():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    active_chargers_count = simulation_runner.get_active_chargers_count()
+    return jsonify({'status': 'success', 'data': {'active_chargers': active_chargers_count}})
 
 if __name__ == '__main__':
     app.run(debug=True)

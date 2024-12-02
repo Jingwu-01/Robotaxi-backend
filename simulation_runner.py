@@ -36,6 +36,9 @@ class SimulationRunner(threading.Thread):
         self.cumulative_consumption = {}
         self.cumulative_consumption_lock = threading.Lock()
 
+        self.chargers_in_use = set()
+        self.chargers_in_use_lock = threading.Lock()
+
     def run(self):
         self.is_running = True
         self.generate_persons_xml(num_people=self.num_people)
@@ -295,25 +298,59 @@ class SimulationRunner(threading.Thread):
                 print("No more chargers to remove.")
                 break
 
-    def simulate_charging(self):
-        """Simulates charging for taxis at charger locations."""
-        for taxi_id in list(self.taxi_ids):
-            if taxi_id not in traci.vehicle.getIDList():
-                self.taxi_ids.remove(taxi_id)
-                continue
-            try:
-                taxi_lane = traci.vehicle.getLaneID(taxi_id)
-                taxi_position = traci.vehicle.getLanePosition(taxi_id)
-                for charger_id, charger_lane_id, charger_position in self.active_chargers:
-                    if taxi_lane == charger_lane_id and abs(taxi_position - charger_position) < 5:
-                        # Simulate charging by increasing battery capacity
-                        current_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.actualBatteryCapacity"))
-                        maximum_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.maximumBatteryCapacity"))
-                        new_capacity = min(current_capacity + 50, maximum_capacity)
-                        traci.vehicle.setParameter(taxi_id, "device.battery.actualBatteryCapacity", str(new_capacity))
-            except traci.exceptions.TraCIException:
-                pass  # Silently ignore or handle error
+    # def simulate_charging(self):
+    #     """Simulates charging for taxis at charger locations."""
+    #     for taxi_id in list(self.taxi_ids):
+    #         if taxi_id not in traci.vehicle.getIDList():
+    #             self.taxi_ids.remove(taxi_id)
+    #             continue
+    #         try:
+    #             taxi_lane = traci.vehicle.getLaneID(taxi_id)
+    #             taxi_position = traci.vehicle.getLanePosition(taxi_id)
+    #             for charger_id, charger_lane_id, charger_position in self.active_chargers:
+    #                 if taxi_lane == charger_lane_id and abs(taxi_position - charger_position) < 5:
+    #                     # Simulate charging by increasing battery capacity
+    #                     current_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.actualBatteryCapacity"))
+    #                     maximum_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.maximumBatteryCapacity"))
+    #                     new_capacity = min(current_capacity + 50, maximum_capacity)
+    #                     traci.vehicle.setParameter(taxi_id, "device.battery.actualBatteryCapacity", str(new_capacity))
+    #         except traci.exceptions.TraCIException:
+    #             pass  # Silently ignore or handle error
     
+    def simulate_charging(self):
+        """Simulates charging for taxis at charger locations and tracks chargers in use."""
+        with self.chargers_in_use_lock:
+            # Clear the set of chargers in use
+            self.chargers_in_use.clear()
+
+            for taxi_id in self.taxi_ids:
+                if taxi_id in traci.vehicle.getIDList():
+                    try:
+                        taxi_lane = traci.vehicle.getLaneID(taxi_id)
+                        taxi_position = traci.vehicle.getLanePosition(taxi_id)
+                        for charger_id, charger_lane_id, charger_position in self.active_chargers:
+                            if taxi_lane == charger_lane_id and abs(taxi_position - charger_position) < 5:
+                                # Add charger to the set of chargers in use
+                                self.chargers_in_use.add(charger_id)
+
+                                # Simulate charging by increasing battery capacity
+                                current_soc = float(traci.vehicle.getParameter(taxi_id, "device.battery.actualBatteryCapacity"))
+                                maximum_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.capacity"))
+                                # Charging rate in kWh per hour
+                                charging_rate_kW = 50.0  # Adjust as needed
+                                # Calculate energy charged during the timestep (in kWh)
+                                delta_charge_kWh = charging_rate_kW * (self.step_length / 3600.0)
+                                new_soc = min(current_soc + delta_charge_kWh, maximum_capacity)
+                                traci.vehicle.setParameter(taxi_id, "device.battery.actualBatteryCapacity", str(new_soc))
+                    except traci.exceptions.TraCIException as e:
+                        print(f"Error during charging simulation for vehicle {taxi_id}: {e}")
+
+    def get_active_chargers_count(self):
+        """Returns the number of chargers currently being used."""
+        with self.chargers_in_use_lock:
+            return len(self.chargers_in_use)
+
+
     def simulate_energy_consumption(self):
         with self.cumulative_consumption_lock:
             for vid in traci.vehicle.getIDList():
