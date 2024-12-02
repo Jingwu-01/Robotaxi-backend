@@ -116,6 +116,14 @@ def get_network():
         return send_file('network.geojson', mimetype='application/json')
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@app.route('/electricityConsumption', methods=['GET'])
+def get_electricity_consumption():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    consumption_data = simulation_runner.get_electricity_consumption()
+    return jsonify({'status': 'success', 'data': consumption_data})
+
 
 if __name__ == '__main__':
     app.run(debug=True)
