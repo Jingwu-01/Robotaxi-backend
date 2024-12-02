@@ -370,6 +370,12 @@ class SimulationRunner(threading.Thread):
             for vid, energy_J in self.cumulative_consumption.items():
                 vehicle_consumption[vid] = energy_J
         return vehicle_consumption
+    
+    def get_active_passengers_count(self):
+        """Returns the number of active passengers."""
+        with self.status_lock:
+            return self.status.get('num_people', 0)
+
 
     def get_status(self):
         """Returns the current status of the simulation."""
