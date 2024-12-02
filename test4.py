@@ -138,5 +138,13 @@ def get_active_passengers():
     active_passengers_count = simulation_runner.get_active_passengers_count()
     return jsonify({'status': 'success', 'data': {'active_passengers': active_passengers_count}})
 
+@app.route('/taxisWithPassengers', methods=['GET'])
+def get_taxis_with_passengers():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    taxis_with_passengers_count = simulation_runner.get_taxis_with_passengers_count()
+    return jsonify({'status': 'success', 'data': {'taxis_with_passengers': taxis_with_passengers_count}})
+
+
 if __name__ == '__main__':
     app.run(debug=True)

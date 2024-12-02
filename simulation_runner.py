@@ -377,6 +377,20 @@ class SimulationRunner(threading.Thread):
             return self.status.get('num_people', 0)
 
 
+    def get_taxis_with_passengers_count(self):
+        """Returns the number of taxis currently carrying passengers."""
+        count = 0
+        for taxi_id in self.taxi_ids:
+            if taxi_id in traci.vehicle.getIDList():
+                try:
+                    passenger_count = traci.vehicle.getPersonNumber(taxi_id)
+                    if passenger_count > 0:
+                        count += 1
+                except traci.exceptions.TraCIException as e:
+                    print(f"Error getting passenger count for taxi {taxi_id}: {e}")
+        return count
+
+
     def get_status(self):
         """Returns the current status of the simulation."""
         with self.status_lock:
