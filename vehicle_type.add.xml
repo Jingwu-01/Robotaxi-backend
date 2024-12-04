@@ -5,8 +5,8 @@
         <param key="device.taxi.dispatch-algorithm" value="greedy"/>
         <param key="device.taxi.idle-algorithm" value="randomCircling"/>
         <param key="has.battery.device" value="true"/>
-        <param key="device.battery.capacity" value="500"/>
-        <param key="device.battery.initialSoc" value="1"/>
+        <param key="device.battery.maximumBatteryCapacity" value="50.0"/>
+        <param key="device.battery.actualBatteryCapacity" value="30.0"/>
         <param key="vehicleModel" value="energy"/>
         <param key="maximumPower" value="1000"/>
         <param key="frontSurfaceArea" value="2.5"/>

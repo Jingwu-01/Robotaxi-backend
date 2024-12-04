@@ -76,6 +76,33 @@ class SimulationRunner(threading.Thread):
                 traci.simulationStep()
                 timestep += 1
 
+                # Record request times for new passengers
+                departed_persons = traci.simulation.getDepartedPersonIDList()
+                current_time = traci.simulation.getTime()
+                for person_id in departed_persons:
+                    if person_id.startswith("person_"):
+                        with self.passenger_wait_times_lock:
+                            self.passenger_request_times[person_id] = current_time
+                            print(f"Person {person_id} requested a ride at time {current_time}")
+
+                # Check for passengers who have been picked up
+                for person_id in list(self.passenger_request_times.keys()):
+                    try:
+                        vehicle_id = traci.person.getVehicle(person_id)
+                        if vehicle_id != "":
+                            # Passenger has been picked up
+                            pickup_time = current_time
+                            request_time = self.passenger_request_times.pop(person_id)
+                            wait_time = pickup_time - request_time
+                            with self.passenger_wait_times_lock:
+                                self.passenger_wait_times.append(wait_time)
+                                print(f"Person {person_id} picked up at time {pickup_time}, wait time: {wait_time} seconds")
+                    except traci.exceptions.TraCIException as e:
+                        # Handle cases where the person might have left the simulation
+                        print(f"Error checking vehicle for person {person_id}: {e}")
+                        with self.passenger_wait_times_lock:
+                            self.passenger_request_times.pop(person_id, None)
+
                 # Update status
                 with self.status_lock:
                     simulation_time = traci.simulation.getTime()
@@ -322,7 +349,6 @@ class SimulationRunner(threading.Thread):
     #             pass  # Silently ignore or handle error
     
     def simulate_charging(self):
-        """Simulates charging for taxis at charger locations and tracks chargers in use."""
         with self.chargers_in_use_lock:
             # Clear the set of chargers in use
             self.chargers_in_use.clear()
@@ -339,7 +365,7 @@ class SimulationRunner(threading.Thread):
 
                                 # Simulate charging by increasing battery capacity
                                 current_soc = float(traci.vehicle.getParameter(taxi_id, "device.battery.actualBatteryCapacity"))
-                                maximum_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.capacity"))
+                                maximum_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.maximumBatteryCapacity"))
                                 # Charging rate in kWh per hour
                                 charging_rate_kW = 50.0  # Adjust as needed
                                 # Calculate energy charged during the timestep (in kWh)
@@ -348,6 +374,7 @@ class SimulationRunner(threading.Thread):
                                 traci.vehicle.setParameter(taxi_id, "device.battery.actualBatteryCapacity", str(new_soc))
                     except traci.exceptions.TraCIException as e:
                         print(f"Error during charging simulation for vehicle {taxi_id}: {e}")
+
 
     def get_active_chargers_count(self):
         """Returns the number of chargers currently being used."""
@@ -380,7 +407,6 @@ class SimulationRunner(threading.Thread):
         with self.status_lock:
             return self.status.get('num_people', 0)
 
-
     def get_taxis_with_passengers_count(self):
         """Returns the number of taxis currently carrying passengers."""
         count = 0
@@ -394,11 +420,33 @@ class SimulationRunner(threading.Thread):
                     print(f"Error getting passenger count for taxi {taxi_id}: {e}")
         return count
 
-
+    def get_average_wait_time(self):
+        """Calculates and returns the average passenger wait time."""
+        with self.passenger_wait_times_lock:
+            if self.passenger_wait_times:
+                average_wait_time = sum(self.passenger_wait_times) / len(self.passenger_wait_times)
+                return average_wait_time
+            else:
+                return 0.0
+            
     def get_status(self):
         """Returns the current status of the simulation."""
         with self.status_lock:
             return self.status.copy()
+
+    def get_battery_levels(self):
+        """Returns the current battery levels of all taxis."""
+        battery_levels = {}
+        for taxi_id in self.taxi_ids:
+            if taxi_id in traci.vehicle.getIDList():
+                try:
+                    actual_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.actualBatteryCapacity"))
+                    maximum_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.maximumBatteryCapacity"))
+                    soc_percentage = (actual_capacity / maximum_capacity) * 100  # Calculate State of Charge (SoC) in percentage
+                    battery_levels[taxi_id] = soc_percentage
+                except traci.exceptions.TraCIException as e:
+                    print(f"Error getting battery level for taxi {taxi_id}: {e}")
+        return battery_levels
 
     def stop(self):
         """Stops the simulation."""
