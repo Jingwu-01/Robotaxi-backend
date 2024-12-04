@@ -159,6 +159,12 @@ def get_battery_levels():
     battery_levels = simulation_runner.get_battery_levels()
     return jsonify({'status': 'success', 'data': battery_levels})
 
+@app.route('/passengerUnsatisfaction', methods=['GET'])
+def get_passenger_unsatisfaction():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    unsatisfaction_percentage = simulation_runner.get_unsatisfied_passengers_percentage()
+    return jsonify({'status': 'success', 'data': {'unsatisfaction_percentage': unsatisfaction_percentage}})
 
 if __name__ == '__main__':
     app.run(debug=True)

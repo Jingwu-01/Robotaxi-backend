@@ -4,6 +4,7 @@ import sumolib
 import random
 from queue import Queue
 import time
+import traci.constants
 
 class SimulationRunner(threading.Thread):
     def __init__(self, step_length, sim_length, num_people=3, num_taxis=3, num_chargers=0):
@@ -43,6 +44,9 @@ class SimulationRunner(threading.Thread):
         self.passenger_wait_times = []     # List of wait times
         self.passenger_wait_times_lock = threading.Lock()
 
+        self.waiting_passengers = {}  # {person_id: start_waiting_time}
+        self.waiting_passengers_lock = threading.Lock()
+
     def run(self):
         self.is_running = True
         self.generate_persons_xml(num_people=self.num_people)
@@ -53,6 +57,7 @@ class SimulationRunner(threading.Thread):
 
         try:
             while not self.stop_event.is_set() and traci.simulation.getTime() < self.sim_length:
+
                 # Process commands before simulation step
                 while not self.command_queue.empty():
                     command = self.command_queue.get()
@@ -75,6 +80,16 @@ class SimulationRunner(threading.Thread):
                 # Advance the simulation step
                 traci.simulationStep()
                 timestep += 1
+
+                current_time = traci.simulation.getTime()
+        
+                # Update waiting passengers
+                with self.waiting_passengers_lock:
+                    current_person_ids = set(traci.person.getIDList())
+                    # Remove passengers who are no longer in the simulation
+                    removed_person_ids = set(self.waiting_passengers.keys()) - current_person_ids
+                    for person_id in removed_person_ids:
+                        del self.waiting_passengers[person_id]
 
                 # Record request times for new passengers
                 departed_persons = traci.simulation.getDepartedPersonIDList()
@@ -176,6 +191,8 @@ class SimulationRunner(threading.Thread):
             "--error-log", "sumo_error_log.txt",
             "--message-log", "sumo_message_log.txt",
             "--verbose", "true",
+
+          
         ]
         traci.start(sumo_cmd)
 
@@ -201,7 +218,7 @@ class SimulationRunner(threading.Thread):
                 traci.vehicle.add(
                     taxi_id,
                     routeID=route_id,
-                    typeID="taxi",
+                    typeID="taxi",  # Use your taxi type ID
                     departPos="random",
                     departLane="best",
                     departSpeed="max"
@@ -272,6 +289,8 @@ class SimulationRunner(threading.Thread):
                 traci.person.add(person_id, edgeID=pickup_edge, pos=0, depart=depart_time)
                 traci.person.appendDrivingStage(person_id, toEdge=dropoff_edge, lines="taxi")
                 print(f"Added person {person_id} dynamically with ride from {pickup_edge} to {dropoff_edge}")
+                with self.waiting_passengers_lock:
+                    self.waiting_passengers[person_id] = depart_time  # Record their start waiting time
             except traci.exceptions.TraCIException as e:
                 print(f"Error adding person {person_id}: {e}")
 
@@ -413,11 +432,11 @@ class SimulationRunner(threading.Thread):
         for taxi_id in self.taxi_ids:
             if taxi_id in traci.vehicle.getIDList():
                 try:
-                    passenger_count = traci.vehicle.getPersonNumber(taxi_id)
-                    if passenger_count > 0:
+                    taxi_state = traci.vehicle.getParameter(taxi_id, "device.taxi.state")
+                    if taxi_state == "occupied":
                         count += 1
                 except traci.exceptions.TraCIException as e:
-                    print(f"Error getting passenger count for taxi {taxi_id}: {e}")
+                    print(f"Error getting taxi state for taxi {taxi_id}: {e}")
         return count
 
     def get_average_wait_time(self):
@@ -447,6 +466,21 @@ class SimulationRunner(threading.Thread):
                 except traci.exceptions.TraCIException as e:
                     print(f"Error getting battery level for taxi {taxi_id}: {e}")
         return battery_levels
+    
+    def get_unsatisfied_passengers_percentage(self):
+        """Calculates and returns the percentage of unsatisfied passengers."""
+        with self.waiting_passengers_lock:
+            total_waiting_passengers = len(self.waiting_passengers)
+            if total_waiting_passengers == 0:
+                return 0.0
+            unsatisfied_count = 0
+            current_time = traci.simulation.getTime()
+            for person_id, start_time in self.waiting_passengers.items():
+                waiting_time = current_time - start_time
+                if waiting_time > 15 * 60:  # 15 minutes in seconds
+                    unsatisfied_count += 1
+            unsatisfaction_percentage = (unsatisfied_count / total_waiting_passengers) * 100
+            return unsatisfaction_percentage
 
     def stop(self):
         """Stops the simulation."""
