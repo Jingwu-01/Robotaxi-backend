@@ -39,6 +39,10 @@ class SimulationRunner(threading.Thread):
         self.chargers_in_use = set()
         self.chargers_in_use_lock = threading.Lock()
 
+        self.passenger_request_times = {}  # person_id -> request_time
+        self.passenger_wait_times = []     # List of wait times
+        self.passenger_wait_times_lock = threading.Lock()
+
     def run(self):
         self.is_running = True
         self.generate_persons_xml(num_people=self.num_people)

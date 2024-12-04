@@ -145,6 +145,5 @@ def get_taxis_with_passengers():
     taxis_with_passengers_count = simulation_runner.get_taxis_with_passengers_count()
     return jsonify({'status': 'success', 'data': {'taxis_with_passengers': taxis_with_passengers_count}})
 
-
 if __name__ == '__main__':
     app.run(debug=True)
