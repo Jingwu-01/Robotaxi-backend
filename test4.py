@@ -166,5 +166,26 @@ def get_passenger_unsatisfaction():
     unsatisfaction_percentage = simulation_runner.get_unsatisfied_passengers_percentage()
     return jsonify({'status': 'success', 'data': {'unsatisfaction_percentage': unsatisfaction_percentage}})
 
+@app.route('/vehicle_positions', methods=['GET'])
+def get_vehicle_positions():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    vehicle_positions = simulation_runner.get_vehicle_positions()
+    return jsonify({'status': 'success', 'data': vehicle_positions})
+
+@app.route('/passenger_positions', methods=['GET'])
+def get_passenger_positions():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    passenger_positions = simulation_runner.get_passenger_positions()
+    return jsonify({'status': 'success', 'data': passenger_positions})
+
+@app.route('/charger_positions', methods=['GET'])
+def get_charger_positions():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    charger_positions = simulation_runner.get_charger_positions()
+    return jsonify({'status': 'success', 'data': charger_positions})
+
 if __name__ == '__main__':
     app.run(debug=True)

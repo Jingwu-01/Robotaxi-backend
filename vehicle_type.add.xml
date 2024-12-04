@@ -1,6 +1,7 @@
 <additional>
     <vType id="taxi" accel="1.0" decel="1.0" length="12" maxSpeed="100.0" sigma="0.0" minGap="2.5" mass="1500" color="0,1,1"
-           vClass="taxi" propulsionType="electric" guiShape="taxi" personCapacity="4" allowPassengers="true" stopAtEnd="false" emissionClass="Energy">
+           vClass="taxi" vehicleClass="taxi" propulsion="electric" guiShape="taxi" personCapacity="4" allowPassengers="true" stopAtEnd="false" emissionClass="Energy">
+        <param key="device.taxi" value="true"/>
         <param key="has.taxi.device" value="true"/>
         <param key="device.taxi.dispatch-algorithm" value="greedy"/>
         <param key="device.taxi.idle-algorithm" value="randomCircling"/>

@@ -123,7 +123,7 @@ class SimulationRunner(threading.Thread):
                     simulation_time = traci.simulation.getTime()
                     num_taxis_simulation = len([vid for vid in traci.vehicle.getIDList() if vid.startswith("taxi_")])
                     num_people_simulation = len([pid for pid in traci.person.getIDList() if pid.startswith("person_")])
-                    num_chargers_simulation = len(self.active_chargers)  # Assuming self.active_chargers is accurate
+                    num_chargers_simulation = len(self.active_chargers)
 
                     self.status = {
                         'simulation_time': simulation_time,
@@ -191,8 +191,6 @@ class SimulationRunner(threading.Thread):
             "--error-log", "sumo_error_log.txt",
             "--message-log", "sumo_message_log.txt",
             "--verbose", "true",
-
-          
         ]
         traci.start(sumo_cmd)
 
@@ -481,6 +479,49 @@ class SimulationRunner(threading.Thread):
                     unsatisfied_count += 1
             unsatisfaction_percentage = (unsatisfied_count / total_waiting_passengers) * 100
             return unsatisfaction_percentage
+
+    def get_vehicle_positions(self):
+        """Returns the positions of all taxis."""
+        vehicle_positions = {}
+        for taxi_id in self.taxi_ids:
+            if taxi_id in traci.vehicle.getIDList():
+                try:
+                    x, y = traci.vehicle.getPosition(taxi_id)
+                    # Convert SUMO coordinates to longitude and latitude
+                    lon, lat = traci.simulation.convertGeo(x, y)
+                    vehicle_positions[taxi_id] = {'lat': lat, 'lon': lon}
+                except traci.exceptions.TraCIException as e:
+                    print(f"Error getting position for taxi {taxi_id}: {e}")
+        return vehicle_positions
+
+    def get_passenger_positions(self):
+        """Returns the positions of all passengers."""
+        passenger_positions = {}
+        for person_id in traci.person.getIDList():
+            if person_id.startswith("person_"):
+                try:
+                    x, y = traci.person.getPosition(person_id)
+                    # Convert SUMO coordinates to longitude and latitude
+                    lon, lat = traci.simulation.convertGeo(x, y)
+                    passenger_positions[person_id] = {'lat': lat, 'lon': lon}
+                except traci.exceptions.TraCIException as e:
+                    print(f"Error getting position for passenger {person_id}: {e}")
+        return passenger_positions
+
+    def get_charger_positions(self):
+        """Returns the positions of all chargers."""
+        charger_positions = {}
+        for charger_id, lane_id, position in self.active_chargers:
+            try:
+                lane = self.net.getLane(lane_id)
+                # Get the coordinates of the lane at the specified position
+                x, y = lane.getXY(position)
+                # Convert SUMO coordinates to geographical coordinates
+                lon, lat = traci.simulation.convertGeo(x, y)
+                charger_positions[charger_id] = {'lat': lat, 'lon': lon}
+            except Exception as e:
+                print(f"Error getting position for charger {charger_id}: {e}")
+        return charger_positions
 
     def stop(self):
         """Stops the simulation."""
