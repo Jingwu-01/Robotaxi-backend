@@ -1,5 +1,4 @@
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
+from flask import Flask, request, jsonify
 from simulation_runner import SimulationRunner
 import os
 import sys
@@ -10,9 +9,8 @@ if 'SUMO_HOME' not in os.environ:
 sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
 
 app = Flask(__name__)
-CORS(app)
 
-simulation_runner = None
+simulation_runner = None  # Initialize simulation runner as None
 
 @app.route('/start_simulation', methods=['POST'])
 def start_simulation():
@@ -109,83 +107,6 @@ def shutdown():
     simulation_runner.join()
     simulation_runner = None
     return jsonify({'status': 'success', 'message': 'Simulation stopped.'})
-
-@app.route('/network', methods=['GET'])
-def get_network():
-    try:
-        return send_file('network.geojson', mimetype='application/json')
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
-@app.route('/electricityConsumption', methods=['GET'])
-def get_electricity_consumption():
-    if not simulation_runner or not simulation_runner.is_running:
-        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
-    consumption_data = simulation_runner.get_electricity_consumption()
-    return jsonify({'status': 'success', 'data': consumption_data})
-
-@app.route('/activeChargers', methods=['GET'])
-def get_active_chargers():
-    if not simulation_runner or not simulation_runner.is_running:
-        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
-    active_chargers_count = simulation_runner.get_active_chargers_count()
-    return jsonify({'status': 'success', 'data': {'active_chargers': active_chargers_count}})
-
-@app.route('/activePassengers', methods=['GET'])
-def get_active_passengers():
-    if not simulation_runner or not simulation_runner.is_running:
-        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
-    active_passengers_count = simulation_runner.get_active_passengers_count()
-    return jsonify({'status': 'success', 'data': {'active_passengers': active_passengers_count}})
-
-@app.route('/taxisWithPassengers', methods=['GET'])
-def get_taxis_with_passengers():
-    if not simulation_runner or not simulation_runner.is_running:
-        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
-    taxis_with_passengers_count = simulation_runner.get_taxis_with_passengers_count()
-    return jsonify({'status': 'success', 'data': {'taxis_with_passengers': taxis_with_passengers_count}})
-
-@app.route('/averagePassengerWaitTime', methods=['GET'])
-def get_average_passenger_wait_time():
-    if not simulation_runner or not simulation_runner.is_running:
-        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
-    average_wait_time = simulation_runner.get_average_wait_time()
-    return jsonify({'status': 'success', 'data': {'average_wait_time': average_wait_time}})
-
-@app.route('/batteryLevels', methods=['GET'])
-def get_battery_levels():
-    if not simulation_runner or not simulation_runner.is_running:
-        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
-    battery_levels = simulation_runner.get_battery_levels()
-    return jsonify({'status': 'success', 'data': battery_levels})
-
-@app.route('/passengerUnsatisfaction', methods=['GET'])
-def get_passenger_unsatisfaction():
-    if not simulation_runner or not simulation_runner.is_running:
-        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
-    unsatisfaction_percentage = simulation_runner.get_unsatisfied_passengers_percentage()
-    return jsonify({'status': 'success', 'data': {'unsatisfaction_percentage': unsatisfaction_percentage}})
-
-@app.route('/vehicle_positions', methods=['GET'])
-def get_vehicle_positions():
-    if not simulation_runner or not simulation_runner.is_running:
-        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
-    vehicle_positions = simulation_runner.get_vehicle_positions()
-    return jsonify({'status': 'success', 'data': vehicle_positions})
-
-@app.route('/passenger_positions', methods=['GET'])
-def get_passenger_positions():
-    if not simulation_runner or not simulation_runner.is_running:
-        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
-    passenger_positions = simulation_runner.get_passenger_positions()
-    return jsonify({'status': 'success', 'data': passenger_positions})
-
-@app.route('/charger_positions', methods=['GET'])
-def get_charger_positions():
-    if not simulation_runner or not simulation_runner.is_running:
-        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
-    charger_positions = simulation_runner.get_charger_positions()
-    return jsonify({'status': 'success', 'data': charger_positions})
 
 if __name__ == '__main__':
     app.run(debug=True)
