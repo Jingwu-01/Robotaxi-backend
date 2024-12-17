@@ -154,5 +154,13 @@ def get_charger_positions():
     charger_positions = simulation_runner.get_charger_positions()
     return jsonify({'status': 'success', 'data': charger_positions})
 
+@app.route('/batteryLevels', methods=['GET'])
+def battery_levels():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    battery_levels = simulation_runner.get_battery_levels()
+    return jsonify({'status': 'success', 'data': battery_levels})
+
+
 if __name__ == '__main__':
     app.run(debug=True)

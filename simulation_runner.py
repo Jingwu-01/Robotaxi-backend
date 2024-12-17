@@ -1720,3 +1720,19 @@ class SimulationRunner(threading.Thread):
             except Exception as e:
                 print(f"Error getting position for charger {charger_id}: {e}")
         return charger_positions
+
+    def get_battery_levels(self):
+        """
+        Returns a dictionary of taxi_id -> battery level (in percentage).
+        """
+        battery_levels = {}
+        for taxi_id in self.taxi_ids:
+            if taxi_id in traci.vehicle.getIDList():
+                try:
+                    actual_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.actualBatteryCapacity"))
+                    maximum_capacity = float(traci.vehicle.getParameter(taxi_id, "device.battery.maximumBatteryCapacity"))
+                    soc_percentage = (actual_capacity / maximum_capacity) * 100.0  # Calculate State of Charge (SoC) in percentage
+                    battery_levels[taxi_id] = soc_percentage
+                except traci.exceptions.TraCIException as e:
+                    print(f"Error getting battery level for taxi {taxi_id}: {e}")
+        return battery_levels
