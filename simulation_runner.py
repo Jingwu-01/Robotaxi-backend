@@ -1756,6 +1756,39 @@ class SimulationRunner(threading.Thread):
         # waiting_reservations: reservations waiting to be picked up
         # assigned_reservations: reservations assigned to a taxi but not picked up yet
         # heading_home_reservations: reservations currently in a taxi (picked up and not dropped off yet)
-        return (len(self.waiting_reservations) +
-                len(self.assigned_reservations.keys()) +
-                len(self.heading_home_reservations.keys()))
+        active_passengers = len(self.waiting_reservations) + len(self.assigned_reservations) + len(self.heading_home_reservations)
+        output = {"active_passengers": active_passengers, "time": traci.simulation.getTime()}
+        return output
+    
+    def get_active_chargers_count(self):
+        """
+        Returns a dictionary with:
+        - active_chargers: the number of chargers currently in use
+        - time: the current simulation time from TraCI
+        """
+        current_time = traci.simulation.getTime()
+        active_count = 0
+        distance_threshold = 5.0  # meters within which a taxi is considered to be using the charger
+
+        # Get the list of taxis currently in the simulation
+        taxis_in_sim = traci.vehicle.getIDList()
+
+        for charger_id, charger_lane_id, charger_position in self.active_chargers:
+            # Check if any taxi is near this charger
+            charger_in_use = False
+            for taxi_id in taxis_in_sim:
+                try:
+                    taxi_lane = traci.vehicle.getLaneID(taxi_id)
+                    taxi_position = traci.vehicle.getLanePosition(taxi_id)
+                    if taxi_lane == charger_lane_id and abs(taxi_position - charger_position) < distance_threshold:
+                        charger_in_use = True
+                        break
+                except traci.exceptions.TraCIException:
+                    # If there's an error fetching parameters for a taxi, ignore and continue
+                    pass
+
+            if charger_in_use:
+                active_count += 1
+
+        return {"active_chargers": active_count, "time": current_time}
+
