@@ -1,0 +1,22 @@
+<additional>
+
+<inductionLoop id="charger_0" lane="15392822#0_0" pos="190.50232007201697" freq="10" file="detector_output.xml" />
+            
+<inductionLoop id="charger_1" lane="-15422673#2_0" pos="36.830107692907475" freq="10" file="detector_output.xml" />
+            
+<inductionLoop id="charger_2" lane="-41162830#9_0" pos="57.631961259755315" freq="10" file="detector_output.xml" />
+            
+<inductionLoop id="charger_3" lane="-170833888#1_0" pos="44.054221045447456" freq="10" file="detector_output.xml" />
+            
+<inductionLoop id="charger_4" lane="-597489866#6_0" pos="62.025242841805145" freq="10" file="detector_output.xml" />
+            
+<inductionLoop id="charger_5" lane="41162830#26_0" pos="32.57167530567586" freq="10" file="detector_output.xml" />
+            
+<inductionLoop id="charger_6" lane="-15401587#3_0" pos="27.307989663371348" freq="10" file="detector_output.xml" />
+            
+<inductionLoop id="charger_7" lane="-15422673#0_0" pos="52.144194545819296" freq="10" file="detector_output.xml" />
+            
+<inductionLoop id="charger_8" lane="208251117#0_0" pos="17.57743949206303" freq="10" file="detector_output.xml" />
+            
+<inductionLoop id="charger_9" lane="15375845#1_0" pos="60.32333458083774" freq="10" file="detector_output.xml" />
+            </additional>

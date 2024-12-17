@@ -1,0 +1,42 @@
+<additional>
+
+<person id="person_0" depart="2414.4">
+    <stop lane="260958657#2_0" duration = "4785.6"/>
+</person>
+            
+<person id="person_1" depart="5626.2">
+    <stop lane="1309852937#0_0" duration = "1573.8000000000002"/>
+</person>
+            
+<person id="person_2" depart="5537.7">
+    <stop lane="15422670#1_0" duration = "1662.3000000000002"/>
+</person>
+            
+<person id="person_3" depart="4464.2">
+    <stop lane="15375574#8_0" duration = "2735.8"/>
+</person>
+            
+<person id="person_4" depart="3061.3">
+    <stop lane="-15422711#7_0" duration = "4138.7"/>
+</person>
+            
+<person id="person_5" depart="2452.8">
+    <stop lane="-232470340#1_0" duration = "4747.2"/>
+</person>
+            
+<person id="person_6" depart="2815.7">
+    <stop lane="-41162830#23_0" duration = "4384.3"/>
+</person>
+            
+<person id="person_7" depart="3534.6">
+    <stop lane="-15415045#1_0" duration = "3665.4"/>
+</person>
+            
+<person id="person_8" depart="4794.4">
+    <stop lane="176574447#7_0" duration = "2405.6000000000004"/>
+</person>
+            
+<person id="person_9" depart="3544.6">
+    <stop lane="536032786#0_0" duration = "3655.4"/>
+</person>
+            </additional>
