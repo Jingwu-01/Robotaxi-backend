@@ -1736,3 +1736,26 @@ class SimulationRunner(threading.Thread):
                 except traci.exceptions.TraCIException as e:
                     print(f"Error getting battery level for taxi {taxi_id}: {e}")
         return battery_levels
+    
+    def get_average_passenger_wait_time(self):
+        """
+        Returns the average passenger wait time in seconds.
+        If no reservations have been picked up, returns 0.
+        """
+        if len(self.reservation_wait_times.values()) > 0:
+            return sum(self.reservation_wait_times.values()) / len(self.reservation_wait_times.values())
+        else:
+            return 0.0
+
+    def get_active_passengers_count(self):
+        """
+        Returns the number of active passengers.
+        Active passengers are those who are waiting to be picked up, assigned and waiting,
+        or currently riding in a taxi.
+        """
+        # waiting_reservations: reservations waiting to be picked up
+        # assigned_reservations: reservations assigned to a taxi but not picked up yet
+        # heading_home_reservations: reservations currently in a taxi (picked up and not dropped off yet)
+        return (len(self.waiting_reservations) +
+                len(self.assigned_reservations.keys()) +
+                len(self.heading_home_reservations.keys()))

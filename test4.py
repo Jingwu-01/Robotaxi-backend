@@ -161,6 +161,22 @@ def battery_levels():
     battery_levels = simulation_runner.get_battery_levels()
     return jsonify({'status': 'success', 'data': battery_levels})
 
+@app.route('/averagePassengerWaitTime', methods=['GET'])
+def get_average_passenger_wait_time():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+    average_wait_time = simulation_runner.get_average_passenger_wait_time()
+    return jsonify({'status': 'success', 'data': {'average_wait_time': average_wait_time}})
+
+@app.route('/activePassengers', methods=['GET'])
+def get_active_passengers():
+    if not simulation_runner or not simulation_runner.is_running:
+        return jsonify({'status': 'error', 'message': 'Simulation is not running.'}), 400
+
+    active_passengers_count = simulation_runner.get_active_passengers_count()
+    return jsonify({'status': 'success', 'data': {'active_passengers': active_passengers_count}})
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
