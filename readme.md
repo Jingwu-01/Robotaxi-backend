@@ -8,7 +8,7 @@
 
 1. Open a terminal or command prompt.
 2. Navigate to the project directory.
-3. Run the backend with the following command:
+3. Make sure SUMO GUI is running, and then run the backend with the following command:
 
    ```bash
    python3 test_final.py
