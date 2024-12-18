@@ -14,4 +14,4 @@
    python3 test_final.py
    ```
 
-If the backend starts successfully, you will see log output indicating that it is running.
+If the backend starts successfully, you will see log output indicating that it is running on localhost 5000.
