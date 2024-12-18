@@ -1791,4 +1791,118 @@ class SimulationRunner(threading.Thread):
                 active_count += 1
 
         return {"active_chargers": active_count, "time": current_time}
+    
+    def get_taxis_with_passengers_count(self):
+        """
+        Returns the number of taxis currently carrying passengers.
+        A taxi is considered to have passengers if it is in the self.heading_home_reservations dict (actually transporting a passenger).
+        Also, any taxi in dropping_off_taxis is already included since they're moving a passenger.
+        """
+        # Each taxi that is in dropping_off_taxis has a passenger.
+        # heading_home_reservations maps reservation_id -> taxi_id for those currently with passengers.
+        # dropping_off_taxis keys are also taxi_ids currently transporting passengers.
 
+        # The number of unique taxi IDs in self.heading_home_reservations.values() or in self.dropping_off_taxis keys 
+        # will give us the count of taxis with passengers.
+        
+        taxis_with_passengers = set()
+
+        for taxi_id in self.dropping_off_taxis.keys():
+            taxis_with_passengers.add(taxi_id)
+
+        # heading_home_reservations also indicates that the reservation is currently being delivered by that taxi
+        for taxi_id in self.heading_home_reservations.values():
+            taxis_with_passengers.add(taxi_id)
+
+        current_time = traci.simulation.getTime()
+        return {"taxis_with_passengers": len(taxis_with_passengers), "time": current_time}
+
+    def get_passenger_unsatisfaction_rate(self):
+        """
+        Calculate the passenger unsatisfaction rate.
+        Unsatisfaction rate = (Number of people waiting more than 15 minutes) / (Total people who have started)
+
+        - A person "starts" their reservation at their depart_time.
+        - A person is considered unsatisfied if:
+        current_time - depart_time > 900 seconds (15 minutes) AND not picked up yet (still waiting or assigned).
+        """
+        current_time = traci.simulation.getTime()
+
+        # Total people who have started = all reservations whose depart_time <= current_time
+        total_started = 0
+        unsatisfied_count = 0
+
+        for res_id, res_data in self.all_valid_res.items():
+            depart_time = res_data[5]
+
+            if depart_time <= current_time:
+                total_started += 1
+                wait_duration = current_time - depart_time
+
+                # Check if this reservation is not picked up yet
+                # Not picked up means reservation_id is in waiting_reservations or assigned_reservations
+                # If picked up -> would be in heading_home_reservations or completed_reservations
+                not_picked_up = (res_id in self.waiting_reservations) or (res_id in self.assigned_reservations)
+
+                if not_picked_up and wait_duration > 900:
+                    unsatisfied_count += 1
+
+        unsatisfied_rate = (unsatisfied_count / total_started) if total_started > 0 else 0.0
+
+        return {
+            "unsatisfied_rate": unsatisfied_rate,
+            "unsatisfied_count": unsatisfied_count,
+            "total_started": total_started,
+            "time": current_time
+        }
+    
+    def get_total_earnings(self):
+        """
+        Computes total earnings from all completed reservations.
+        Uses self.completed_reservations_by_taxi and the pricing model described.
+        """
+        total_satisfied_reservations = 0
+        total_earnings = 0
+        # Iterate over all taxi IDs and sum up the earnings
+        for taxi_id in self.taxi_ids:
+            taxi_earnings = 0
+            if taxi_id in self.completed_reservations_by_taxi.keys():
+                total_satisfied_reservations += len(self.completed_reservations_by_taxi[taxi_id])
+                for completed_trip in self.completed_reservations_by_taxi[taxi_id]:
+                    trip_length = completed_trip[0] / 1000  
+                    trip_demand_multiplier = completed_trip[1]
+                    trip_tod_rate = completed_trip[2]
+                    trip_earnings = self.taxi_ride_base_price + (
+                                (trip_length * self.taxi_ride_distance_rate) * trip_demand_multiplier * trip_tod_rate)
+                    taxi_earnings += trip_earnings
+            total_earnings += taxi_earnings
+        return total_earnings
+
+    def get_total_cost(self):
+        """
+        Computes total cost from all charging trips and tows.
+        Uses self.cost_per_charging_trip and self.cost_per_tow.
+        """
+        total_cost = 0.0
+        total_num_charging_trips = 0
+        total_num_tows = 0
+
+        # Iterate over all taxi IDs and sum up the costs
+        for taxi_id in self.taxi_ids:
+            if taxi_id in self.cost_per_charging_trip.keys():
+                total_num_charging_trips += len(self.cost_per_charging_trip[taxi_id])
+                total_cost += (len(self.cost_per_charging_trip[taxi_id]) * self.charge_base_price) + sum(self.cost_per_charging_trip[taxi_id])
+            if taxi_id in self.cost_per_tow.keys():
+                total_num_tows += len(self.cost_per_tow[taxi_id])
+                total_cost += (len(self.cost_per_tow[taxi_id]) * self.tow_base_price) + sum(self.cost_per_tow[taxi_id])
+
+        return total_cost
+
+    def get_profit(self):
+        """
+        Computes profit as total earnings - total cost.
+        """
+        total_earnings = self.get_total_earnings()
+        total_cost = self.get_total_cost()
+        # Profit = Earnings - Cost
+        return total_earnings - total_cost
